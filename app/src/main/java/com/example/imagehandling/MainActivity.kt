@@ -1,25 +1,24 @@
 package com.example.imagehandling
 
 import android.app.Activity
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.View
 import android.widget.ImageView
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.CallSuper
-import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import java.lang.ref.WeakReference
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
+    @Inject
+    lateinit var contractHandler : ImageContractHandler
 
     private lateinit var latestTmpUri: Uri
 
@@ -44,7 +43,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onCameraClick() {
         lifecycleScope.launchWhenStarted {
-            getTmpFileUri().let { uri ->
+            FileManager.getTmpFileUri(applicationContext)?.let { uri ->
                 latestTmpUri = uri
                 takeImageResult.launch(uri)
             }
@@ -52,6 +51,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onGalleryClick() {
+        contractHandler.getImageFromGallery().observe(this, {
+            it?.let { u ->
+                backgroundImageView.setImageURI(u)
+                val file = File(u.path)
+            }
+        })
+    }
+
+    fun onGalleryClickOld() {
         getContent.launch("image/*")
     }
 
@@ -68,19 +76,6 @@ class MainActivity : AppCompatActivity() {
                 backgroundImageView.setImageURI(uri)
             }
         }
-    }
-
-    private fun getTmpFileUri(): Uri {
-        val tmpFile = File.createTempFile("tmp_image_file", ".png", cacheDir).apply {
-            createNewFile()
-            deleteOnExit()
-        }
-
-        return FileProvider.getUriForFile(
-            applicationContext,
-            "${BuildConfig.APPLICATION_ID}.provider",
-            tmpFile
-        )
     }
 
     // I haven't directly called onCameraClick and onGalleryClick because
